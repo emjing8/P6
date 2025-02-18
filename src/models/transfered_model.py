@@ -13,7 +13,7 @@ class TransferedModel(Model):
         # use this model by removing the last layer, adding dense layers and an output layer
         
         # Load model
-        base_model = models.load_model("basic_model.h5")
+        base_model = models.load_model("basic_model.keras")
         # Check the number of total params, trainable params and non-trainable params
         base_model.summary()
         # Freeze weights of loaded model
