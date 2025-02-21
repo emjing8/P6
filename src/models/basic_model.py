@@ -24,14 +24,21 @@ class BasicModel(Model):
             layers.Conv2D(16, (3,3), activation='relu'),
             layers.MaxPooling2D(3,3),
 
+            layers.Dropout(0.5),
+
             #convolutional layer 3
             layers.Conv2D(32, (3,3), activation='relu'),   
             layers.MaxPooling2D(2,2),
 
+            #convolutional layer 4
+            layers.Conv2D(64, (3,3), activation='relu'),   
+            layers.MaxPooling2D(2,2),
+
+
             #Flatten the results to a 1D vecotr
             #layers.GlobalAveragePooling2D(),  #signically lowers params compared to flatten
             layers.Flatten(),
-            layers.Dense(64, activation='relu'),
+            layers.Dense(32, activation='relu'),
 
             #dropout layer to prvent overfitting
             layers.Dropout(0.5),
