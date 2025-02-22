@@ -33,34 +33,80 @@ from matplotlib.image import imread
 import cv2
 
 class UserWebcamPlayer:
+    def __init__(self):
+        print("Initializing UserWebcamPlayer...")
+        # Load model once during initialization
+        self.model = models.load_model('results/Hyper_best_model.keras')
+        # Load face detector
+        self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
     def _process_frame(self, frame):
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        width, height = frame.shape
-        size = min(width, height)
-        pad = int((width-size)/2), int((height-size)/2)
-        frame = frame[pad[0]:pad[0]+size, pad[1]:pad[1]+size]
-        return frame
+        if frame is None:
+            return None
+            
+        # Detect faces
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = self.face_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(30, 30)
+        )
+        
+        if len(faces) == 0:
+            print("No face detected in frame")
+            return None
+            
+        # Get the largest face
+        x, y, w, h = max(faces, key=lambda x: x[2] * x[3])
+        face_roi = frame[y:y+h, x:x+w]
+        
+        return face_roi
 
     def _access_webcam(self):
-        import cv2
         cv2.namedWindow("preview")
         vc = cv2.VideoCapture(0)
-        if vc.isOpened(): # try to get the first frame
+        
+        if not vc.isOpened():
+            print("Error: Could not access webcam")
+            return None
+            
+        while True:
             rval, frame = vc.read()
-            frame = self._process_frame(frame)
-        else:
-            rval = False
-        while rval:
-            cv2.imshow("preview", frame)
-            rval, frame = vc.read()
-            frame = self._process_frame(frame)
-            key = cv2.waitKey(20)
-            if key == 13: # exit on Enter
+            if not rval:
                 break
-
+                
+            processed_frame = self._process_frame(frame)
+            self._debug_face_detection(frame)  # Add debug visualization
+            
+            if processed_frame is not None:
+                cv2.imshow("preview", processed_frame)
+                
+            key = cv2.waitKey(20)
+            if key == 13:  # Enter key
+                break
+                
         vc.release()
-        cv2.destroyWindow("preview")
-        return frame
+        cv2.destroyAllWindows()
+        return processed_frame
+
+    def _debug_face_detection(self, frame):
+        if frame is None:
+            return
+            
+        debug_frame = frame.copy()
+        gray = cv2.cvtColor(debug_frame, cv2.COLOR_BGR2GRAY)
+        faces = self.face_cascade.detectMultiScale(gray, 1.1, 5)
+        
+        for (x, y, w, h) in faces:
+            # Draw rectangle around face
+            cv2.rectangle(debug_frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+            
+            # Add label
+            cv2.putText(debug_frame, 'Face', (x, y-10), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+        
+        cv2.imshow('Debug: Face Detection', debug_frame)
 
     def _print_reference(self, row_or_col):
         print('reference:')
@@ -95,37 +141,41 @@ class UserWebcamPlayer:
     
     def _get_emotion(self, img) -> int:
         try:
-            print("Loading the trained model...")
-            model = models.load_model('results/Hyper_best_model.keras')
-            print("Model loaded successfully.")
-
-            print("Resizing the image to match the model's input size...")
+            if img is None:
+                print("No valid image to process")
+                return 0  # Return neutral as default
+                
+            # Preprocess image
             image = cv2.resize(img, (image_size[0], image_size[1]))
-
-            # Convert the image to RGB if needed
-            if len(image.shape) == 2 or image.shape[-1] != 3:
-                print("Converting grayscale image to RGB format...")
-                image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-
-            print("Normalizing the image...")
-            image = image / 255.0
-
-            print("Expanding dimensions to match the model input...")
+            
+            # Convert to RGB (model expects RGB input)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            
+            # Normalize pixel values
+            image = image.astype('float32') / 255.0
+            
+            # Add batch dimension
             image = np.expand_dims(image, axis=0)
-
-            print("Making a prediction...")
-            prediction = model.predict(image)
-
-            print("Prediction probabilities:", prediction)
-            detected_emotion = np.argmax(prediction)
-            print("Detected emotion index:", detected_emotion)
-            print("Mapped category:", categories[detected_emotion])
-
+            
+            # Get prediction
+            prediction = self.model.predict(image, verbose=0)
+            confidence = np.max(prediction[0])
+            detected_emotion = np.argmax(prediction[0])
+            
+            # Add confidence threshold
+            if confidence < 0.6:  # Adjust threshold as needed
+                print(f"Low confidence ({confidence:.2f}) - defaulting to neutral")
+                return 0
+                
+            print(f"\nPrediction confidence: {confidence:.2f}")
+            print(f"Detected emotion: {categories[detected_emotion]}")
+            
             return detected_emotion
+            
         except Exception as e:
             print(f"Error during emotion detection: {e}")
-            raise e
-    
+            return 0
+
     def get_move(self, board_state):
         row, col = None, None
         while row is None:
