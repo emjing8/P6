@@ -94,21 +94,37 @@ class UserWebcamPlayer:
             raise e
     
     def _get_emotion(self, img) -> int:
-        # Your code goes here
-        #
-        # img an np array of size NxN (square), each pixel is a value between 0 to 255
-        # you have to resize this to image_size before sending to your model
-        # to show the image here, you can use:
-        # import matplotlib.pyplot as plt
-        # plt.imshow(img, cmap='gray', vmin=0, vmax=255)
-        # plt.show()
-        #
-        # You have to use your saved model, use resized img as input, and get one classification value out of it
-        # The classification value should be 0, 1, or 2 for neutral, happy or surprise respectively
+        try:
+            print("Loading the trained model...")
+            model = models.load_model('results/Hyper_best_model.keras')
+            print("Model loaded successfully.")
 
-        # return an integer (0, 1 or 2), otherwise the code will throw an error
-        return 1
-        pass
+            print("Resizing the image to match the model's input size...")
+            image = cv2.resize(img, (image_size[0], image_size[1]))
+
+            # Convert the image to RGB if needed
+            if len(image.shape) == 2 or image.shape[-1] != 3:
+                print("Converting grayscale image to RGB format...")
+                image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+
+            print("Normalizing the image...")
+            image = image / 255.0
+
+            print("Expanding dimensions to match the model input...")
+            image = np.expand_dims(image, axis=0)
+
+            print("Making a prediction...")
+            prediction = model.predict(image)
+
+            print("Prediction probabilities:", prediction)
+            detected_emotion = np.argmax(prediction)
+            print("Detected emotion index:", detected_emotion)
+            print("Mapped category:", categories[detected_emotion])
+
+            return detected_emotion
+        except Exception as e:
+            print(f"Error during emotion detection: {e}")
+            raise e
     
     def get_move(self, board_state):
         row, col = None, None

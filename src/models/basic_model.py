@@ -17,20 +17,31 @@ class BasicModel(Model):
             Rescaling(1./255, input_shape=input_shape),
 
             #convolutional layer 
-            layers.Conv2D(32, (3,3), activation='relu'),
-            layers.MaxPooling2D(2,2), #reduce the size of the image by taking the maximum value in the 2x2 window, cutting the image size in half
+            layers.Conv2D(8, (3,3), activation='relu'),
+            layers.MaxPooling2D(3,3), #reduce the size of the image by taking the maximum value in the 2x2 window, cutting the image size in half
 
             #convolutional layer 2
-            layers.Conv2D(64, (3,3), activation='relu'),
-            layers.MaxPooling2D(2,2),
+            layers.Conv2D(16, (3,3), activation='relu'),
+            layers.MaxPooling2D(3,3),
+
+            layers.Dropout(0.5),
 
             #convolutional layer 3
-            layers.Conv2D(128, (3,3), activation='relu'),   
+            layers.Conv2D(32, (3,3), activation='relu'),   
             layers.MaxPooling2D(2,2),
 
+            #convolutional layer 4
+            layers.Conv2D(64, (3,3), activation='relu'),   
+            layers.MaxPooling2D(2,2),
+
+
             #Flatten the results to a 1D vecotr
+            #layers.GlobalAveragePooling2D(),  #signically lowers params compared to flatten
             layers.Flatten(),
-            layers.Dense(128, activation='relu'),
+            layers.Dense(32, activation='relu'),
+
+            #dropout layer to prvent overfitting
+            layers.Dropout(0.5),
 
             #output layer
             layers.Dense(categories_count, activation='softmax')
